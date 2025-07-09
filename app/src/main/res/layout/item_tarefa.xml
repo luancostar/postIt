@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="8dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="0dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/textViewTitulo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@+id/progressBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Website for CourierGo.com" />
+
+        <TextView
+            android:id="@+id/textViewObservacao"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="14sp"
+            app:layout_constraintEnd_toEndOf="@+id/textViewTitulo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textViewTitulo"
+            tools:text="Digital Product Design" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:indeterminate="false"
+            android:max="100"
+            android:progress="75"
+            android:progressDrawable="@drawable/circular_progress_bar"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <View
+            android:id="@+id/divider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_marginTop="16dp"
+            android:background="?android:attr/listDivider"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/textViewObservacao" />
+
+        <ImageView
+            android:id="@+id/iconeCalendario"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginTop="16dp"
+            android:src="@drawable/ic_calendar"
+            app:tint="@android:color/darker_gray"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/divider"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <TextView
+            android:id="@+id/textViewDataEntrega"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="@android:color/darker_gray"
+            app:layout_constraintBottom_toBottomOf="@+id/iconeCalendario"
+            app:layout_constraintStart_toEndOf="@+id/iconeCalendario"
+            app:layout_constraintTop_toTopOf="@+id/iconeCalendario"
+            tools:text="08/07/2025" />
+
+        <ImageView
+            android:id="@+id/iconeAlerta"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/ic_alert"
+            android:visibility="gone"
+            app:tint="#FF9800"
+            app:layout_constraintBottom_toBottomOf="@+id/textViewDataEntrega"
+            app:layout_constraintStart_toEndOf="@+id/textViewDataEntrega"
+            app:layout_constraintTop_toTopOf="@+id/textViewDataEntrega"
+            tools:visibility="visible"/>
+
+        <ImageButton
+            android:id="@+id/btnExcluir"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_delete"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Excluir"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/iconeCalendario"
+            app:layout_constraintBottom_toBottomOf="@+id/iconeCalendario"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

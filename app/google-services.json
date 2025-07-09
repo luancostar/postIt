@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1073513754687",
+    "firebase_url": "https://meuapp-afb9b-default-rtdb.firebaseio.com",
+    "project_id": "meuapp-afb9b",
+    "storage_bucket": "meuapp-afb9b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1073513754687:android:852bf05629c66677f6c88a",
+        "android_client_info": {
+          "package_name": "com.example.meuapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEoMS0XHIZiVKHb2hILKUP9CdKP2ghgws"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
