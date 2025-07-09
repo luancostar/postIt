@@ -11,6 +11,7 @@
     app:strokeWidth="0dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/card_body"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="16dp">
@@ -22,7 +23,7 @@
             android:textColor="@android:color/black"
             android:textSize="18sp"
             android:textStyle="bold"
-            app:layout_constraintEnd_toStartOf="@+id/progressBar"
+            app:layout_constraintEnd_toStartOf="@+id/containerDataEntrega"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Website for CourierGo.com" />
@@ -34,22 +35,49 @@
             android:layout_marginTop="4dp"
             android:textColor="@android:color/darker_gray"
             android:textSize="14sp"
+            android:visibility="visible"
             app:layout_constraintEnd_toEndOf="@+id/textViewTitulo"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/textViewTitulo"
-            tools:text="Digital Product Design" />
+            tools:text="Digital Product Design"/>
 
-        <ProgressBar
-            android:id="@+id/progressBar"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
-            android:indeterminate="false"
-            android:max="100"
-            android:progress="75"
-            android:progressDrawable="@drawable/circular_progress_bar"
+        <FrameLayout
+            android:id="@+id/containerDataEntrega"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent">
+            <ImageView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Ícone de calendário da entrega"
+                android:src="@drawable/ic_calendar_large"
+                app:tint="#E0E7FF" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/textViewDiaEntrega"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/md_theme_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    tools:text="08" />
+                <TextView
+                    android:id="@+id/textViewMesEntrega"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAllCaps="true"
+                    android:textColor="@color/md_theme_primary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    tools:text="JUL" />
+            </LinearLayout>
+        </FrameLayout>
 
         <View
             android:id="@+id/divider"
@@ -62,50 +90,41 @@
             app:layout_constraintTop_toBottomOf="@+id/textViewObservacao" />
 
         <ImageView
-            android:id="@+id/iconeCalendario"
+            android:id="@+id/iconeConclusao"
             android:layout_width="16dp"
             android:layout_height="16dp"
             android:layout_marginTop="16dp"
-            android:src="@drawable/ic_calendar"
-            app:tint="@android:color/darker_gray"
+            android:contentDescription="Ícone de tarefa concluída"
+            android:src="@drawable/ic_check_circle"
+            app:tint="#4CAF50"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/divider"
             app:layout_constraintBottom_toBottomOf="parent"/>
 
         <TextView
-            android:id="@+id/textViewDataEntrega"
+            android:id="@+id/textViewDataFinalizacao"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:textColor="@android:color/darker_gray"
-            app:layout_constraintBottom_toBottomOf="@+id/iconeCalendario"
-            app:layout_constraintStart_toEndOf="@+id/iconeCalendario"
-            app:layout_constraintTop_toTopOf="@+id/iconeCalendario"
-            tools:text="08/07/2025" />
+            app:layout_constraintBottom_toBottomOf="@+id/iconeConclusao"
+            app:layout_constraintStart_toEndOf="@+id/iconeConclusao"
+            app:layout_constraintTop_toTopOf="@+id/iconeConclusao"
+            tools:text="Finalizado em 09/07/2025" />
 
         <ImageView
             android:id="@+id/iconeAlerta"
             android:layout_width="18dp"
             android:layout_height="18dp"
             android:layout_marginStart="8dp"
+            android:contentDescription="Alerta de prazo"
             android:src="@drawable/ic_alert"
             android:visibility="gone"
             app:tint="#FF9800"
-            app:layout_constraintBottom_toBottomOf="@+id/textViewDataEntrega"
-            app:layout_constraintStart_toEndOf="@+id/textViewDataEntrega"
-            app:layout_constraintTop_toTopOf="@+id/textViewDataEntrega"
+            app:layout_constraintBottom_toBottomOf="@+id/textViewDataFinalizacao"
+            app:layout_constraintStart_toEndOf="@+id/textViewDataFinalizacao"
+            app:layout_constraintTop_toTopOf="@+id/textViewDataFinalizacao"
             tools:visibility="visible"/>
-
-        <ImageButton
-            android:id="@+id/btnExcluir"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_delete"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Excluir"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/iconeCalendario"
-            app:layout_constraintBottom_toBottomOf="@+id/iconeCalendario"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

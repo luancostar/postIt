@@ -6,11 +6,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.recyclerview.widget.RecyclerView;
-
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -19,13 +19,12 @@ import java.util.Locale;
 
 public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaViewHolder> {
 
-    private List<Usuario> tarefas = new ArrayList<>();
+    private final List<Usuario> tarefas = new ArrayList<>();
     private final OnItemClickListener listener;
 
+    // ✅ INTERFACE SIMPLIFICADA
     public interface OnItemClickListener {
-        void onItemClick(Usuario tarefa); // Para edição no clique longo
-        void onDeleteClick(Usuario tarefa);
-        // O onStatusChange não é mais necessário na interface, pois é tratado pelo swipe na MainActivity
+        void onCardLongClick(Usuario tarefa); // Única ação de clique necessária
     }
 
     public TarefaAdapter(OnItemClickListener listener) {
@@ -33,11 +32,11 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
     }
 
     public void setTarefas(List<Usuario> novasTarefas) {
-        this.tarefas = novasTarefas;
+        this.tarefas.clear();
+        this.tarefas.addAll(novasTarefas);
         notifyDataSetChanged();
     }
 
-    // Método para o gesto de arrastar na MainActivity
     public Usuario getTarefaAt(int position) {
         return tarefas.get(position);
     }
@@ -51,8 +50,7 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
 
     @Override
     public void onBindViewHolder(@NonNull TarefaViewHolder holder, int position) {
-        Usuario tarefaAtual = tarefas.get(position);
-        holder.bind(tarefaAtual, listener);
+        holder.bind(tarefas.get(position));
     }
 
     @Override
@@ -60,92 +58,82 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
         return tarefas.size();
     }
 
-    // --- ViewHolder Interno ---
     class TarefaViewHolder extends RecyclerView.ViewHolder {
-        // Componentes do novo layout item_tarefa.xml
-        TextView textViewTitulo, textViewObservacao, textViewDataEntrega;
-        ImageView iconeAlerta;
-        ImageButton btnExcluir;
-        ProgressBar progressBar;
+        TextView textViewTitulo, textViewObservacao, textViewDiaEntrega, textViewMesEntrega, textViewDataFinalizacao;
+        ImageView iconeAlerta, iconeConclusao;
+        ConstraintLayout cardBody;
 
         public TarefaViewHolder(@NonNull View itemView) {
             super(itemView);
-            // Linkando os componentes do layout
             textViewTitulo = itemView.findViewById(R.id.textViewTitulo);
             textViewObservacao = itemView.findViewById(R.id.textViewObservacao);
-            btnExcluir = itemView.findViewById(R.id.btnExcluir);
-            textViewDataEntrega = itemView.findViewById(R.id.textViewDataEntrega); // NOVO
-            iconeAlerta = itemView.findViewById(R.id.iconeAlerta);             // NOVO
-            progressBar = itemView.findViewById(R.id.progressBar);             // NOVO
+            textViewDiaEntrega = itemView.findViewById(R.id.textViewDiaEntrega);
+            textViewMesEntrega = itemView.findViewById(R.id.textViewMesEntrega);
+            textViewDataFinalizacao = itemView.findViewById(R.id.textViewDataFinalizacao);
+            iconeAlerta = itemView.findViewById(R.id.iconeAlerta);
+            iconeConclusao = itemView.findViewById(R.id.iconeConclusao);
+            cardBody = itemView.findViewById(R.id.card_body);
         }
 
-        public void bind(final Usuario tarefa, final OnItemClickListener listener) {
-            // Mapeando: nome -> título, email -> observação
-            textViewTitulo.setText(tarefa.getNome());
-
-            // Lógica para status e observação
+        public void bind(final Usuario tarefa) {
             boolean isChecked = tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK]");
-            if (isChecked) {
-                // Se concluída, remove o prefixo para exibir a observação limpa
-                textViewObservacao.setText(tarefa.getEmail().substring(5));
-            } else {
-                textViewObservacao.setText(tarefa.getEmail());
-            }
 
-            // --- LÓGICA PARA EXIBIR A DATA E O ALERTA ---
+            textViewTitulo.setText(tarefa.getNome());
+            textViewObservacao.setText(isChecked ? tarefa.getEmail().substring(5) : tarefa.getEmail());
+
             if (tarefa.getDataEntrega() != null && !tarefa.getDataEntrega().isEmpty()) {
-                textViewDataEntrega.setText(tarefa.getDataEntrega());
-                // Verifica se a data da tarefa é hoje para mostrar o alerta
-                if (isHoje(tarefa.getDataEntrega())) {
-                    iconeAlerta.setVisibility(View.VISIBLE);
-                } else {
-                    iconeAlerta.setVisibility(View.GONE);
+                try {
+                    SimpleDateFormat formatoEntrada = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+                    Date data = formatoEntrada.parse(tarefa.getDataEntrega());
+                    String dia = new SimpleDateFormat("dd", Locale.getDefault()).format(data);
+                    String mes = new SimpleDateFormat("MMM", Locale.getDefault()).format(data);
+                    mes = mes.substring(0, 1).toUpperCase() + mes.substring(1).toLowerCase();
+                    textViewDiaEntrega.setText(dia);
+                    textViewMesEntrega.setText(mes);
+                } catch (ParseException e) {
+                    textViewDiaEntrega.setText("--");
+                    textViewMesEntrega.setText("");
                 }
+                iconeAlerta.setVisibility(isHoje(tarefa.getDataEntrega()) && !isChecked ? View.VISIBLE : View.GONE);
             } else {
-                textViewDataEntrega.setText("Sem data");
+                textViewDiaEntrega.setText("--");
+                textViewMesEntrega.setText("");
                 iconeAlerta.setVisibility(View.GONE);
             }
 
-            // Atualiza o efeito de riscado no texto e a opacidade
+            if (isChecked && tarefa.getDataFinalizacao() != null && !tarefa.getDataFinalizacao().isEmpty()) {
+                textViewDataFinalizacao.setText("Finalizado em " + tarefa.getDataFinalizacao());
+                textViewDataFinalizacao.setVisibility(View.VISIBLE);
+                iconeConclusao.setVisibility(View.VISIBLE);
+            } else {
+                textViewDataFinalizacao.setVisibility(View.GONE);
+                iconeConclusao.setVisibility(View.GONE);
+            }
+
             updateStrikethrough(isChecked);
 
-            itemView.setOnClickListener(v -> {
-                // Verifica se a observação está visível
-                boolean isVisible = textViewObservacao.getVisibility() == View.VISIBLE;
-                // Inverte a visibilidade
-                textViewObservacao.setVisibility(isVisible ? View.GONE : View.VISIBLE);
+            // ✅ PRESSIONAR O CARD AGORA ABRE A EDIÇÃO
+            cardBody.setOnLongClickListener(v -> {
+                listener.onCardLongClick(tarefa);
+                return true; // Retorna true para consumir o evento
             });
 
-            // --- LISTENERS ---
-            // Clique longo para editar
-            itemView.setOnLongClickListener(v -> {
-                listener.onItemClick(tarefa);
-                return true;
-            });
-
-            // Botão de excluir
-            btnExcluir.setOnClickListener(v -> listener.onDeleteClick(tarefa));
+            // ❌ Listener de clique simples foi removido
         }
 
         private void updateStrikethrough(boolean isChecked) {
             if (isChecked) {
                 textViewTitulo.setPaintFlags(textViewTitulo.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
-                itemView.setAlpha(0.6f); // Deixa o card inteiro um pouco transparente
+                itemView.setAlpha(0.7f);
             } else {
                 textViewTitulo.setPaintFlags(textViewTitulo.getPaintFlags() & (~Paint.STRIKE_THRU_TEXT_FLAG));
-                itemView.setAlpha(1.0f); // Restaura a opacidade normal
+                itemView.setAlpha(1.0f);
             }
         }
 
-        // Função auxiliar para verificar se a data é hoje
         private boolean isHoje(String dataTarefa) {
             if(dataTarefa == null || dataTarefa.isEmpty()) return false;
-
-            // Pega a data de hoje no formato dd/MM/yyyy
-            SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-            String dataDeHoje = sdf.format(new Date());
-
-            return dataDeHoje.equals(dataTarefa);
+            return new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date()).equals(dataTarefa);
         }
     }
 }
