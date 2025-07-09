@@ -15,6 +15,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -24,6 +25,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
@@ -40,8 +42,6 @@ import com.google.firebase.database.ValueEventListener;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     private TextView textViewContadorAndamento, textViewContadorConcluidas;
     private CircleImageView profileImage;
     private TextView profileName;
+    private ImageButton btnEditName;
     private SharedPreferences sharedPreferences;
     private ActivityResultLauncher<Intent> galleryLauncher;
     private DatabaseReference databaseUsuarios;
@@ -65,12 +66,15 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        if (getSupportActionBar() != null) getSupportActionBar().setDisplayShowTitleEnabled(false);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayShowTitleEnabled(false);
+        }
 
         databaseUsuarios = FirebaseDatabase.getInstance().getReference("usuarios");
         textViewContadorAndamento = findViewById(R.id.textViewContadorAndamento);
@@ -79,6 +83,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         fabAdicionar = findViewById(R.id.fabAdicionar);
         profileImage = findViewById(R.id.profile_image);
         profileName = findViewById(R.id.profile_name);
+        btnEditName = findViewById(R.id.btn_edit_name);
         sharedPreferences = getSharedPreferences("PerfilApp", Context.MODE_PRIVATE);
 
         listaTarefas = new ArrayList<>();
@@ -90,20 +95,30 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         configurarSwipeActions();
 
         fabAdicionar.setOnClickListener(v -> abrirDialogTarefa(null));
-        profileName.setOnClickListener(v -> abrirDialogNome());
+        btnEditName.setOnClickListener(v -> abrirDialogNome());
 
+        // ✅ LÓGICA DE SELEÇÃO DE IMAGEM ATUALIZADA E CORRIGIDA
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
-                        profileImage.setImageURI(imageUri);
-                        salvarUriDaFoto(imageUri.toString());
+                        if (imageUri != null) {
+                            // Pede a permissão permanente para este URI
+                            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
+                            getContentResolver().takePersistableUriPermission(imageUri, takeFlags);
+
+                            // Salva e exibe a imagem
+                            profileImage.setImageURI(imageUri);
+                            salvarUriDaFoto(imageUri.toString());
+                        }
                     }
                 });
 
         profileImage.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_PICK);
+            // Usa a forma moderna de abrir documentos, que permite permissão persistente
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("image/*");
             galleryLauncher.launch(intent);
         });
@@ -134,12 +149,14 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
             @Override
             public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
-                return false; // Não usamos reordenação
+                return false;
             }
 
             @Override
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
+                if (position == RecyclerView.NO_POSITION) return;
+
                 Usuario tarefa = adapter.getTarefaAt(position);
 
                 if (direction == ItemTouchHelper.LEFT) {
@@ -153,42 +170,48 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             @Override
             public void onChildDraw(@NonNull Canvas c, @NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, float dX, float dY, int actionState, boolean isCurrentlyActive) {
                 super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
-                View itemView = viewHolder.itemView;
-                Drawable icon;
-                ColorDrawable background;
+                if (actionState == ItemTouchHelper.ACTION_STATE_SWIPE) {
+                    View itemView = viewHolder.itemView;
+                    Drawable icon;
+                    ColorDrawable background;
 
-                if (dX > 0) { // Direita
-                    background = new ColorDrawable(Color.parseColor("#4CAF50"));
-                    icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_check_circle);
-                } else { // Esquerda
-                    background = new ColorDrawable(Color.parseColor("#F44336"));
-                    icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_delete);
+                    if (dX > 0) {
+                        background = new ColorDrawable(Color.parseColor("#4CAF50"));
+                        icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_check_circle);
+                    } else {
+                        background = new ColorDrawable(Color.parseColor("#F44336"));
+                        icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_delete);
+                    }
+
+                    if (icon != null) {
+                        icon.setTint(Color.WHITE);
+                        final int iconSize = 90;
+                        final int iconMargin = 60;
+                        int itemHeight = itemView.getHeight();
+                        int iconTop = itemView.getTop() + (itemHeight - iconSize) / 2;
+                        int iconBottom = iconTop + iconSize;
+
+                        if (dX > 0) {
+                            int iconLeft = itemView.getLeft() + iconMargin;
+                            int iconRight = itemView.getLeft() + iconMargin + iconSize;
+                            icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                            background.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getLeft() + ((int) dX), itemView.getBottom());
+                        } else if (dX < 0) {
+                            int iconRight = itemView.getRight() - iconMargin;
+                            int iconLeft = itemView.getRight() - iconMargin - iconSize;
+                            icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
+                            background.setBounds(itemView.getRight() + ((int) dX), itemView.getTop(), itemView.getRight(), itemView.getBottom());
+                        } else {
+                            background.setBounds(0, 0, 0, 0);
+                        }
+                        background.draw(c);
+                        icon.draw(c);
+                    }
                 }
-
-                int iconMargin = (itemView.getHeight() - icon.getIntrinsicHeight()) / 2;
-                int iconTop = itemView.getTop() + (itemView.getHeight() - icon.getIntrinsicHeight()) / 2;
-                int iconBottom = iconTop + icon.getIntrinsicHeight();
-
-                if (dX > 0) {
-                    int iconLeft = itemView.getLeft() + iconMargin;
-                    int iconRight = itemView.getLeft() + iconMargin + icon.getIntrinsicWidth();
-                    icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
-                    background.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getLeft() + ((int) dX), itemView.getBottom());
-                } else if (dX < 0) {
-                    int iconLeft = itemView.getRight() - iconMargin - icon.getIntrinsicWidth();
-                    int iconRight = itemView.getRight() - iconMargin;
-                    icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
-                    background.setBounds(itemView.getRight() + ((int) dX), itemView.getTop(), itemView.getRight(), itemView.getBottom());
-                } else {
-                    background.setBounds(0,0,0,0);
-                }
-                background.draw(c);
-                icon.draw(c);
             }
         }).attachToRecyclerView(recyclerViewTarefas);
     }
 
-    // ✅ MÉTODO DA INTERFACE ATUALIZADO
     @Override
     public void onCardLongClick(Usuario tarefa) {
         abrirDialogTarefa(tarefa);
@@ -206,7 +229,11 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                 .setNegativeButton("Cancelar", (dialog, which) -> {
                     adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
                 })
-                .setOnCancelListener(dialog -> adapter.notifyItemChanged(listaTarefas.indexOf(tarefa)))
+                .setOnCancelListener(dialog -> {
+                    if (listaTarefas.contains(tarefa)) {
+                        adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
+                    }
+                })
                 .show();
     }
 
@@ -228,7 +255,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         }
     }
 
-    // --- O resto dos métodos auxiliares ---
     private void carregarPerfil() {
         String nomeSalvo = sharedPreferences.getString("USER_NAME", "Seu Nome");
         String uriFotoSalva = sharedPreferences.getString("USER_PHOTO_URI", null);
@@ -305,12 +331,27 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     }
 
     private void abrirDialogNome() {
-        //...
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Digite seu nome");
+        View viewInflated = LayoutInflater.from(this).inflate(R.layout.dialog_input_nome, (ViewGroup) findViewById(android.R.id.content), false);
+        final EditText input = viewInflated.findViewById(R.id.editTextNomeDialog);
+        builder.setView(viewInflated);
+        builder.setPositiveButton("Salvar", (dialog, which) -> {
+            String nome = input.getText().toString();
+            if (!nome.isEmpty()) {
+                salvarNome(nome);
+                profileName.setText("Olá, " + nome + "! 👋");
+            }
+        });
+        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
+        builder.show();
     }
+
     private void salvarNome(String nome) {
-        //...
+        sharedPreferences.edit().putString("USER_NAME", nome).apply();
     }
+
     private void salvarUriDaFoto(String uriString) {
-        //...
+        sharedPreferences.edit().putString("USER_PHOTO_URI", uriString).apply();
     }
 }
