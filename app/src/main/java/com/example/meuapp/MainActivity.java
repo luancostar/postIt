@@ -33,25 +33,24 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.UUID;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnItemClickListener {
 
+    // --- Componentes da UI ---
     private RecyclerView recyclerViewTarefas;
     private FloatingActionButton fabAdicionar;
     private TarefaAdapter adapter;
@@ -59,9 +58,11 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     private CircleImageView profileImage;
     private TextView profileName;
     private ImageButton btnEditName;
+
+    // --- Persistência ---
     private SharedPreferences sharedPreferences;
     private ActivityResultLauncher<Intent> galleryLauncher;
-    private DatabaseReference databaseUsuarios;
+    private AppDatabase roomDatabase; // ✅ A ÚNICA FONTE DE DADOS DAS TAREFAS
     private List<Usuario> listaTarefas;
 
     @Override
@@ -76,7 +77,9 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             getSupportActionBar().setDisplayShowTitleEnabled(false);
         }
 
-        databaseUsuarios = FirebaseDatabase.getInstance().getReference("usuarios");
+        // --- INICIALIZAÇÃO APENAS DO ROOM ---
+        roomDatabase = AppDatabase.getDatabase(getApplicationContext());
+
         textViewContadorAndamento = findViewById(R.id.textViewContadorAndamento);
         textViewContadorConcluidas = findViewById(R.id.textViewContadorConcluidas);
         recyclerViewTarefas = findViewById(R.id.recyclerViewTarefas);
@@ -92,23 +95,20 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         recyclerViewTarefas.setAdapter(adapter);
 
         carregarPerfil();
+        observarBancoLocal();
         configurarSwipeActions();
 
         fabAdicionar.setOnClickListener(v -> abrirDialogTarefa(null));
         btnEditName.setOnClickListener(v -> abrirDialogNome());
 
-        // ✅ LÓGICA DE SELEÇÃO DE IMAGEM ATUALIZADA E CORRIGIDA
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            // Pede a permissão permanente para este URI
                             final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
                             getContentResolver().takePersistableUriPermission(imageUri, takeFlags);
-
-                            // Salva e exibe a imagem
                             profileImage.setImageURI(imageUri);
                             salvarUriDaFoto(imageUri.toString());
                         }
@@ -116,7 +116,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                 });
 
         profileImage.setOnClickListener(v -> {
-            // Usa a forma moderna de abrir documentos, que permite permissão persistente
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("image/*");
@@ -124,26 +123,24 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         });
     }
 
+    // ❌ O onStart() não faz mais nada, pois não há listener do Firebase
     @Override
     protected void onStart() {
         super.onStart();
-        databaseUsuarios.orderByChild("orderIndex").addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                listaTarefas.clear();
-                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
-                    Usuario tarefa = postSnapshot.getValue(Usuario.class);
-                    if (tarefa != null) listaTarefas.add(tarefa);
-                }
-                adapter.setTarefas(listaTarefas);
+    }
+
+    private void observarBancoLocal() {
+        roomDatabase.tarefaDao().getTodasAsTarefas().observe(this, tarefas -> {
+            // A lista da UI é sempre um reflexo do banco de dados local
+            if (tarefas != null) {
+                this.listaTarefas = tarefas;
+                adapter.setTarefas(tarefas);
                 atualizarContadores();
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-                Toast.makeText(MainActivity.this, "Falha ao carregar tarefas.", Toast.LENGTH_SHORT).show();
             }
         });
     }
+
+    // ❌ O método iniciarSincronizacaoFirebase() foi removido
 
     private void configurarSwipeActions() {
         new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
@@ -218,15 +215,17 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     }
 
     public void onDeleteClick(Usuario tarefa) {
-        if (tarefa == null || tarefa.getId() == null) return;
+        if (tarefa == null) return;
         new AlertDialog.Builder(this)
                 .setTitle("Excluir Tarefa")
                 .setMessage("Você tem certeza que deseja excluir \"" + tarefa.getNome() + "\"?")
                 .setPositiveButton("Sim, excluir", (dialog, which) -> {
-                    databaseUsuarios.child(tarefa.getId()).removeValue()
-                            .addOnSuccessListener(aVoid -> Toast.makeText(this, "Tarefa excluída", Toast.LENGTH_SHORT).show());
+                    // Ação de deletar agora só acontece no Room
+                    AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().deletar(tarefa));
+                    Toast.makeText(this, "Tarefa excluída", Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Cancelar", (dialog, which) -> {
+                    // Notifica o adapter para o item redesenhar na posição original
                     adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
                 })
                 .setOnCancelListener(dialog -> {
@@ -247,23 +246,33 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             observacao = observacao.startsWith("[OK] ") ? observacao.substring(5) : observacao;
             dataFinalizacao = "";
         }
-        if (tarefa.getId() != null) {
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("email", observacao);
-            updates.put("dataFinalizacao", dataFinalizacao);
-            databaseUsuarios.child(tarefa.getId()).updateChildren(updates);
-        }
+
+        tarefa.setEmail(observacao);
+        tarefa.setDataFinalizacao(dataFinalizacao);
+
+        // Atualiza a tarefa apenas no Room, em segundo plano
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().atualizar(tarefa));
     }
 
-    private void carregarPerfil() {
-        String nomeSalvo = sharedPreferences.getString("USER_NAME", "Seu Nome");
-        String uriFotoSalva = sharedPreferences.getString("USER_PHOTO_URI", null);
-        profileName.setText("Olá, " + nomeSalvo + "! 👋");
-        if (uriFotoSalva != null) {
-            profileImage.setImageURI(Uri.parse(uriFotoSalva));
-        }
+    private void adicionarTarefa(String titulo, String observacao, String data) {
+        // Gera um ID único localmente. O ID do Firebase não é mais necessário.
+        String id = UUID.randomUUID().toString();
+        long orderIndex = -System.currentTimeMillis();
+        Usuario novaTarefa = new Usuario(id, titulo, observacao, data, "", orderIndex);
+
+        // Insere a tarefa apenas no Room, em segundo plano
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().inserir(novaTarefa));
+        Toast.makeText(this, "Tarefa adicionada!", Toast.LENGTH_SHORT).show();
     }
 
+    private void atualizarTarefa(String id, String titulo, String observacao, String data, String dataFinalizacao, long orderIndex) {
+        Usuario tarefaAtualizada = new Usuario(id, titulo, observacao, data, dataFinalizacao, orderIndex);
+
+        // Atualiza a tarefa apenas no Room, em segundo plano
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().atualizar(tarefaAtualizada));
+    }
+
+    // --- O resto dos seus métodos continua igual ---
     private void abrirDialogTarefa(final Usuario tarefa) {
         LayoutInflater inflater = getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.dialog_tarefa, null);
@@ -305,31 +314,35 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         builder.create().show();
     }
 
-    private void adicionarTarefa(String titulo, String observacao, String data) {
-        String id = databaseUsuarios.push().getKey();
-        long orderIndex = -System.currentTimeMillis();
-        Usuario novaTarefa = new Usuario(id, titulo, observacao, data, "", orderIndex);
-        if (id != null) databaseUsuarios.child(id).setValue(novaTarefa);
-    }
-
-    private void atualizarTarefa(String id, String titulo, String observacao, String data, String dataFinalizacao, long orderIndex) {
-        Usuario tarefaAtualizada = new Usuario(id, titulo, observacao, data, dataFinalizacao, orderIndex);
-        databaseUsuarios.child(id).setValue(tarefaAtualizada);
-    }
-
     private void atualizarContadores() {
         int emAndamento = 0, concluidas = 0;
-        for (Usuario tarefa : listaTarefas) {
-            if (tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK]")) {
-                concluidas++;
-            } else {
-                emAndamento++;
+        if (listaTarefas != null) {
+            for (Usuario tarefa : listaTarefas) {
+                if (tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK]")) {
+                    concluidas++;
+                } else {
+                    emAndamento++;
+                }
             }
         }
         textViewContadorAndamento.setText(String.valueOf(emAndamento));
         textViewContadorConcluidas.setText(String.valueOf(concluidas));
     }
 
+    private void carregarPerfil() {
+        String nomeSalvo = sharedPreferences.getString("USER_NAME", "Seu Nome");
+        String uriFotoSalva = sharedPreferences.getString("USER_PHOTO_URI", null);
+        profileName.setText("Olá, " + nomeSalvo + "! 👋");
+        if (uriFotoSalva != null) {
+            profileImage.setImageURI(Uri.parse(uriFotoSalva));
+        }
+    }
+    private void salvarNome(String nome) {
+        sharedPreferences.edit().putString("USER_NAME", nome).apply();
+    }
+    private void salvarUriDaFoto(String uriString) {
+        sharedPreferences.edit().putString("USER_PHOTO_URI", uriString).apply();
+    }
     private void abrirDialogNome() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Digite seu nome");
@@ -345,13 +358,5 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         });
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
         builder.show();
-    }
-
-    private void salvarNome(String nome) {
-        sharedPreferences.edit().putString("USER_NAME", nome).apply();
-    }
-
-    private void salvarUriDaFoto(String uriString) {
-        sharedPreferences.edit().putString("USER_PHOTO_URI", uriString).apply();
     }
 }
