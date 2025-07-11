@@ -33,25 +33,22 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
+import java.util.UUID;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnItemClickListener {
 
+    // --- Componentes da UI ---
     private RecyclerView recyclerViewTarefas;
     private FloatingActionButton fabAdicionar;
     private TarefaAdapter adapter;
@@ -59,10 +56,14 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     private CircleImageView profileImage;
     private TextView profileName;
     private ImageButton btnEditName;
+
+    // --- Persistência e Dados ---
     private SharedPreferences sharedPreferences;
-    private ActivityResultLauncher<Intent> galleryLauncher;
-    private DatabaseReference databaseUsuarios;
+    private AppDatabase roomDatabase;
     private List<Usuario> listaTarefas;
+    private ActivityResultLauncher<Intent> galleryLauncher;
+
+    // Suas outras variáveis...
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,7 +77,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             getSupportActionBar().setDisplayShowTitleEnabled(false);
         }
 
-        databaseUsuarios = FirebaseDatabase.getInstance().getReference("usuarios");
         textViewContadorAndamento = findViewById(R.id.textViewContadorAndamento);
         textViewContadorConcluidas = findViewById(R.id.textViewContadorConcluidas);
         recyclerViewTarefas = findViewById(R.id.recyclerViewTarefas);
@@ -84,31 +84,29 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         profileImage = findViewById(R.id.profile_image);
         profileName = findViewById(R.id.profile_name);
         btnEditName = findViewById(R.id.btn_edit_name);
-        sharedPreferences = getSharedPreferences("PerfilApp", Context.MODE_PRIVATE);
 
+        roomDatabase = AppDatabase.getDatabase(getApplicationContext());
+        sharedPreferences = getSharedPreferences("PerfilApp", Context.MODE_PRIVATE);
         listaTarefas = new ArrayList<>();
-        adapter = new TarefaAdapter(this);
+
+        adapter = new TarefaAdapter(this, this);
         recyclerViewTarefas.setLayoutManager(new LinearLayoutManager(this));
         recyclerViewTarefas.setAdapter(adapter);
 
         carregarPerfil();
+        observarBancoLocal();
         configurarSwipeActions();
 
         fabAdicionar.setOnClickListener(v -> abrirDialogTarefa(null));
         btnEditName.setOnClickListener(v -> abrirDialogNome());
 
-        // ✅ LÓGICA DE SELEÇÃO DE IMAGEM ATUALIZADA E CORRIGIDA
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            // Pede a permissão permanente para este URI
-                            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
-                            getContentResolver().takePersistableUriPermission(imageUri, takeFlags);
-
-                            // Salva e exibe a imagem
+                            getContentResolver().takePersistableUriPermission(imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                             profileImage.setImageURI(imageUri);
                             salvarUriDaFoto(imageUri.toString());
                         }
@@ -116,7 +114,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                 });
 
         profileImage.setOnClickListener(v -> {
-            // Usa a forma moderna de abrir documentos, que permite permissão persistente
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
             intent.setType("image/*");
@@ -124,23 +121,12 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         });
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        databaseUsuarios.orderByChild("orderIndex").addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                listaTarefas.clear();
-                for (DataSnapshot postSnapshot : dataSnapshot.getChildren()) {
-                    Usuario tarefa = postSnapshot.getValue(Usuario.class);
-                    if (tarefa != null) listaTarefas.add(tarefa);
-                }
-                adapter.setTarefas(listaTarefas);
+    private void observarBancoLocal() {
+        roomDatabase.tarefaDao().getTodasAsTarefas().observe(this, tarefas -> {
+            if (tarefas != null) {
+                this.listaTarefas = tarefas;
+                adapter.setTarefas(tarefas);
                 atualizarContadores();
-            }
-            @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
-                Toast.makeText(MainActivity.this, "Falha ao carregar tarefas.", Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -156,7 +142,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
                 if (position == RecyclerView.NO_POSITION) return;
-
                 Usuario tarefa = adapter.getTarefaAt(position);
 
                 if (direction == ItemTouchHelper.LEFT) {
@@ -167,6 +152,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                 }
             }
 
+            // ✅ CÓDIGO DO BACKGROUND RESTAURADO AQUI
             @Override
             public void onChildDraw(@NonNull Canvas c, @NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, float dX, float dY, int actionState, boolean isCurrentlyActive) {
                 super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
@@ -175,30 +161,28 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                     Drawable icon;
                     ColorDrawable background;
 
-                    if (dX > 0) {
+                    if (dX > 0) { // Direita (Concluir)
                         background = new ColorDrawable(Color.parseColor("#4CAF50"));
                         icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_check_circle);
-                    } else {
+                    } else { // Esquerda (Excluir)
                         background = new ColorDrawable(Color.parseColor("#F44336"));
                         icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_delete);
                     }
 
                     if (icon != null) {
                         icon.setTint(Color.WHITE);
-                        final int iconSize = 90;
-                        final int iconMargin = 60;
-                        int itemHeight = itemView.getHeight();
-                        int iconTop = itemView.getTop() + (itemHeight - iconSize) / 2;
-                        int iconBottom = iconTop + iconSize;
+                        int iconMargin = (itemView.getHeight() - icon.getIntrinsicHeight()) / 2;
+                        int iconTop = itemView.getTop() + (itemView.getHeight() - icon.getIntrinsicHeight()) / 2;
+                        int iconBottom = iconTop + icon.getIntrinsicHeight();
 
-                        if (dX > 0) {
+                        if (dX > 0) { // Direita
                             int iconLeft = itemView.getLeft() + iconMargin;
-                            int iconRight = itemView.getLeft() + iconMargin + iconSize;
+                            int iconRight = itemView.getLeft() + iconMargin + icon.getIntrinsicWidth();
                             icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
                             background.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getLeft() + ((int) dX), itemView.getBottom());
-                        } else if (dX < 0) {
+                        } else if (dX < 0) { // Esquerda
                             int iconRight = itemView.getRight() - iconMargin;
-                            int iconLeft = itemView.getRight() - iconMargin - iconSize;
+                            int iconLeft = itemView.getRight() - iconMargin - icon.getIntrinsicWidth();
                             icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
                             background.setBounds(itemView.getRight() + ((int) dX), itemView.getTop(), itemView.getRight(), itemView.getBottom());
                         } else {
@@ -218,19 +202,17 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     }
 
     public void onDeleteClick(Usuario tarefa) {
-        if (tarefa == null || tarefa.getId() == null) return;
+        if (tarefa == null) return;
         new AlertDialog.Builder(this)
                 .setTitle("Excluir Tarefa")
-                .setMessage("Você tem certeza que deseja excluir \"" + tarefa.getNome() + "\"?")
-                .setPositiveButton("Sim, excluir", (dialog, which) -> {
-                    databaseUsuarios.child(tarefa.getId()).removeValue()
-                            .addOnSuccessListener(aVoid -> Toast.makeText(this, "Tarefa excluída", Toast.LENGTH_SHORT).show());
+                .setMessage("Deseja excluir \"" + tarefa.getNome() + "\"?")
+                .setPositiveButton("Sim", (dialog, which) -> {
+                    AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().deletar(tarefa));
+                    Toast.makeText(this, "Tarefa excluída.", Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton("Cancelar", (dialog, which) -> {
-                    adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
-                })
+                .setNegativeButton("Não", (dialog, which) -> adapter.notifyItemChanged(listaTarefas.indexOf(tarefa)))
                 .setOnCancelListener(dialog -> {
-                    if (listaTarefas.contains(tarefa)) {
+                    if(listaTarefas.contains(tarefa)) {
                         adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
                     }
                 })
@@ -247,21 +229,28 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             observacao = observacao.startsWith("[OK] ") ? observacao.substring(5) : observacao;
             dataFinalizacao = "";
         }
-        if (tarefa.getId() != null) {
-            Map<String, Object> updates = new HashMap<>();
-            updates.put("email", observacao);
-            updates.put("dataFinalizacao", dataFinalizacao);
-            databaseUsuarios.child(tarefa.getId()).updateChildren(updates);
-        }
+
+        tarefa.setEmail(observacao);
+        tarefa.setDataFinalizacao(dataFinalizacao);
+
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().atualizar(tarefa));
     }
 
-    private void carregarPerfil() {
-        String nomeSalvo = sharedPreferences.getString("USER_NAME", "Seu Nome");
-        String uriFotoSalva = sharedPreferences.getString("USER_PHOTO_URI", null);
-        profileName.setText("Olá, " + nomeSalvo + "! 👋");
-        if (uriFotoSalva != null) {
-            profileImage.setImageURI(Uri.parse(uriFotoSalva));
-        }
+    private void adicionarTarefa(String titulo, String observacao, String data) {
+        String id = UUID.randomUUID().toString();
+        long orderIndex = -System.currentTimeMillis();
+        Usuario novaTarefa = new Usuario(id, titulo, observacao, data, "", orderIndex);
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().inserir(novaTarefa));
+        Toast.makeText(this, "Tarefa adicionada!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void atualizarTarefa(Usuario tarefaOriginal, String novoTitulo, String novaObservacao, String novaData) {
+        tarefaOriginal.setNome(novoTitulo);
+        tarefaOriginal.setEmail(novaObservacao);
+        tarefaOriginal.setDataEntrega(novaData);
+
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().atualizar(tarefaOriginal));
+        Toast.makeText(this, "Tarefa atualizada!", Toast.LENGTH_SHORT).show();
     }
 
     private void abrirDialogTarefa(final Usuario tarefa) {
@@ -298,36 +287,43 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             } else {
                 boolean isChecked = tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK] ");
                 if (isChecked) observacao = "[OK] " + observacao;
-                atualizarTarefa(tarefa.getId(), titulo, observacao, data, tarefa.getDataFinalizacao(), tarefa.getOrderIndex());
+                atualizarTarefa(tarefa, titulo, observacao, data);
             }
         });
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
         builder.create().show();
     }
 
-    private void adicionarTarefa(String titulo, String observacao, String data) {
-        String id = databaseUsuarios.push().getKey();
-        long orderIndex = -System.currentTimeMillis();
-        Usuario novaTarefa = new Usuario(id, titulo, observacao, data, "", orderIndex);
-        if (id != null) databaseUsuarios.child(id).setValue(novaTarefa);
-    }
-
-    private void atualizarTarefa(String id, String titulo, String observacao, String data, String dataFinalizacao, long orderIndex) {
-        Usuario tarefaAtualizada = new Usuario(id, titulo, observacao, data, dataFinalizacao, orderIndex);
-        databaseUsuarios.child(id).setValue(tarefaAtualizada);
-    }
-
     private void atualizarContadores() {
         int emAndamento = 0, concluidas = 0;
-        for (Usuario tarefa : listaTarefas) {
-            if (tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK]")) {
-                concluidas++;
-            } else {
-                emAndamento++;
+        if (listaTarefas != null) {
+            for (Usuario tarefa : listaTarefas) {
+                if (tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK]")) {
+                    concluidas++;
+                } else {
+                    emAndamento++;
+                }
             }
         }
         textViewContadorAndamento.setText(String.valueOf(emAndamento));
         textViewContadorConcluidas.setText(String.valueOf(concluidas));
+    }
+
+    private void carregarPerfil() {
+        String nomeSalvo = sharedPreferences.getString("USER_NAME", "Seu Nome");
+        String uriFotoSalva = sharedPreferences.getString("USER_PHOTO_URI", null);
+        profileName.setText("Olá, " + nomeSalvo + "! 👋");
+        if (uriFotoSalva != null) {
+            profileImage.setImageURI(Uri.parse(uriFotoSalva));
+        }
+    }
+
+    private void salvarNome(String nome) {
+        sharedPreferences.edit().putString("USER_NAME", nome).apply();
+    }
+
+    private void salvarUriDaFoto(String uriString) {
+        sharedPreferences.edit().putString("USER_PHOTO_URI", uriString).apply();
     }
 
     private void abrirDialogNome() {
@@ -345,13 +341,5 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         });
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
         builder.show();
-    }
-
-    private void salvarNome(String nome) {
-        sharedPreferences.edit().putString("USER_NAME", nome).apply();
-    }
-
-    private void salvarUriDaFoto(String uriString) {
-        sharedPreferences.edit().putString("USER_PHOTO_URI", uriString).apply();
     }
 }

@@ -1,15 +1,17 @@
 package com.example.meuapp;
 
+import android.content.Context;
 import android.graphics.Paint;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageButton;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
-import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.card.MaterialCardView;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -21,14 +23,15 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
 
     private final List<Usuario> tarefas = new ArrayList<>();
     private final OnItemClickListener listener;
+    private final Context context;
 
-    // ✅ INTERFACE SIMPLIFICADA
     public interface OnItemClickListener {
-        void onCardLongClick(Usuario tarefa); // Única ação de clique necessária
+        void onCardLongClick(Usuario tarefa);
     }
 
-    public TarefaAdapter(OnItemClickListener listener) {
+    public TarefaAdapter(OnItemClickListener listener, Context context) {
         this.listener = listener;
+        this.context = context;
     }
 
     public void setTarefas(List<Usuario> novasTarefas) {
@@ -38,7 +41,10 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
     }
 
     public Usuario getTarefaAt(int position) {
-        return tarefas.get(position);
+        if (position >= 0 && position < tarefas.size()) {
+            return tarefas.get(position);
+        }
+        return null;
     }
 
     @NonNull
@@ -59,20 +65,19 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
     }
 
     class TarefaViewHolder extends RecyclerView.ViewHolder {
+        MaterialCardView taskCardView;
         TextView textViewTitulo, textViewObservacao, textViewDiaEntrega, textViewMesEntrega, textViewDataFinalizacao;
-        ImageView iconeAlerta, iconeConclusao;
-        ConstraintLayout cardBody;
+        ImageView iconeConclusao;
 
         public TarefaViewHolder(@NonNull View itemView) {
             super(itemView);
+            taskCardView = itemView.findViewById(R.id.task_card_view);
             textViewTitulo = itemView.findViewById(R.id.textViewTitulo);
             textViewObservacao = itemView.findViewById(R.id.textViewObservacao);
             textViewDiaEntrega = itemView.findViewById(R.id.textViewDiaEntrega);
             textViewMesEntrega = itemView.findViewById(R.id.textViewMesEntrega);
             textViewDataFinalizacao = itemView.findViewById(R.id.textViewDataFinalizacao);
-            iconeAlerta = itemView.findViewById(R.id.iconeAlerta);
             iconeConclusao = itemView.findViewById(R.id.iconeConclusao);
-            cardBody = itemView.findViewById(R.id.card_body);
         }
 
         public void bind(final Usuario tarefa) {
@@ -94,11 +99,9 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
                     textViewDiaEntrega.setText("--");
                     textViewMesEntrega.setText("");
                 }
-                iconeAlerta.setVisibility(isHoje(tarefa.getDataEntrega()) && !isChecked ? View.VISIBLE : View.GONE);
             } else {
                 textViewDiaEntrega.setText("--");
                 textViewMesEntrega.setText("");
-                iconeAlerta.setVisibility(View.GONE);
             }
 
             if (isChecked && tarefa.getDataFinalizacao() != null && !tarefa.getDataFinalizacao().isEmpty()) {
@@ -112,13 +115,19 @@ public class TarefaAdapter extends RecyclerView.Adapter<TarefaAdapter.TarefaView
 
             updateStrikethrough(isChecked);
 
-            // ✅ PRESSIONAR O CARD AGORA ABRE A EDIÇÃO
-            cardBody.setOnLongClickListener(v -> {
-                listener.onCardLongClick(tarefa);
-                return true; // Retorna true para consumir o evento
-            });
+            // LÓGICA DA ANIMAÇÃO
+            if (isHoje(tarefa.getDataEntrega()) && !isChecked) {
+                Animation pulse = AnimationUtils.loadAnimation(context, R.anim.pulse_effect);
+                taskCardView.startAnimation(pulse);
+            } else {
+                taskCardView.clearAnimation();
+            }
 
-            // ❌ Listener de clique simples foi removido
+            // GESTO DE CLIQUE LONGO PARA EDITAR
+            itemView.setOnLongClickListener(v -> {
+                listener.onCardLongClick(tarefa);
+                return true;
+            });
         }
 
         private void updateStrikethrough(boolean isChecked) {
