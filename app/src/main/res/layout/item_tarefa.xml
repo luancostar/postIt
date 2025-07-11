@@ -2,6 +2,7 @@
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/task_card_view"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="16dp"
@@ -111,20 +112,6 @@
             app:layout_constraintStart_toEndOf="@+id/iconeConclusao"
             app:layout_constraintTop_toTopOf="@+id/iconeConclusao"
             tools:text="Finalizado em 09/07/2025" />
-
-        <ImageView
-            android:id="@+id/iconeAlerta"
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:layout_marginStart="8dp"
-            android:contentDescription="Alerta de prazo"
-            android:src="@drawable/ic_alert"
-            android:visibility="gone"
-            app:tint="#FF9800"
-            app:layout_constraintBottom_toBottomOf="@+id/textViewDataFinalizacao"
-            app:layout_constraintStart_toEndOf="@+id/textViewDataFinalizacao"
-            app:layout_constraintTop_toTopOf="@+id/textViewDataFinalizacao"
-            tools:visibility="visible"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>

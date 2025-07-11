@@ -1,23 +1,16 @@
 package com.example.meuapp;
 
-import android.Manifest;
-import android.app.AlarmManager;
 import android.app.DatePickerDialog;
-import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.text.TextUtils;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -55,8 +48,7 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnItemClickListener {
 
-    public static final String TAG_DEBUG = "POSTIT_APP_DEBUG";
-
+    // --- Componentes da UI ---
     private RecyclerView recyclerViewTarefas;
     private FloatingActionButton fabAdicionar;
     private TarefaAdapter adapter;
@@ -64,20 +56,14 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     private CircleImageView profileImage;
     private TextView profileName;
     private ImageButton btnEditName;
+
+    // --- Persistência e Dados ---
     private SharedPreferences sharedPreferences;
     private AppDatabase roomDatabase;
     private List<Usuario> listaTarefas;
-
-    private final ActivityResultLauncher<String> requestPermissionLauncher =
-            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                if (isGranted) {
-                    Log.d(TAG_DEBUG, "Permissão de notificação CONCEDIDA.");
-                } else {
-                    Toast.makeText(this, "Permissão de notificação negada.", Toast.LENGTH_LONG).show();
-                }
-            });
-
     private ActivityResultLauncher<Intent> galleryLauncher;
+
+    // Suas outras variáveis...
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +77,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             getSupportActionBar().setDisplayShowTitleEnabled(false);
         }
 
-        // ORDEM DE INICIALIZAÇÃO CORRIGIDA
         textViewContadorAndamento = findViewById(R.id.textViewContadorAndamento);
         textViewContadorConcluidas = findViewById(R.id.textViewContadorConcluidas);
         recyclerViewTarefas = findViewById(R.id.recyclerViewTarefas);
@@ -104,19 +89,14 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         sharedPreferences = getSharedPreferences("PerfilApp", Context.MODE_PRIVATE);
         listaTarefas = new ArrayList<>();
 
-        // CONFIGURA O ADAPTER E O RECYCLERVIEW
-        adapter = new TarefaAdapter(this);
+        adapter = new TarefaAdapter(this, this);
         recyclerViewTarefas.setLayoutManager(new LinearLayoutManager(this));
         recyclerViewTarefas.setAdapter(adapter);
 
-        // CHAMA OS OUTROS MÉTODOS DE CONFIGURAÇÃO
         carregarPerfil();
         observarBancoLocal();
         configurarSwipeActions();
-        pedirPermissaoDeNotificacao();
-        verificarPermissaoDeAlarmeExato();
 
-        // CONFIGURA OS LISTENERS DE CLIQUE
         fabAdicionar.setOnClickListener(v -> abrirDialogTarefa(null));
         btnEditName.setOnClickListener(v -> abrirDialogNome());
 
@@ -126,8 +106,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                     if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                         Uri imageUri = result.getData().getData();
                         if (imageUri != null) {
-                            final int takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION;
-                            getContentResolver().takePersistableUriPermission(imageUri, takeFlags);
+                            getContentResolver().takePersistableUriPermission(imageUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                             profileImage.setImageURI(imageUri);
                             salvarUriDaFoto(imageUri.toString());
                         }
@@ -163,7 +142,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 int position = viewHolder.getAdapterPosition();
                 if (position == RecyclerView.NO_POSITION) return;
-
                 Usuario tarefa = adapter.getTarefaAt(position);
 
                 if (direction == ItemTouchHelper.LEFT) {
@@ -174,6 +152,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                 }
             }
 
+            // ✅ CÓDIGO DO BACKGROUND RESTAURADO AQUI
             @Override
             public void onChildDraw(@NonNull Canvas c, @NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, float dX, float dY, int actionState, boolean isCurrentlyActive) {
                 super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive);
@@ -182,30 +161,28 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                     Drawable icon;
                     ColorDrawable background;
 
-                    if (dX > 0) {
+                    if (dX > 0) { // Direita (Concluir)
                         background = new ColorDrawable(Color.parseColor("#4CAF50"));
                         icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_check_circle);
-                    } else {
+                    } else { // Esquerda (Excluir)
                         background = new ColorDrawable(Color.parseColor("#F44336"));
                         icon = ContextCompat.getDrawable(MainActivity.this, R.drawable.ic_delete);
                     }
 
                     if (icon != null) {
                         icon.setTint(Color.WHITE);
-                        final int iconSize = 90;
-                        final int iconMargin = 60;
-                        int itemHeight = itemView.getHeight();
-                        int iconTop = itemView.getTop() + (itemHeight - iconSize) / 2;
-                        int iconBottom = iconTop + iconSize;
+                        int iconMargin = (itemView.getHeight() - icon.getIntrinsicHeight()) / 2;
+                        int iconTop = itemView.getTop() + (itemView.getHeight() - icon.getIntrinsicHeight()) / 2;
+                        int iconBottom = iconTop + icon.getIntrinsicHeight();
 
-                        if (dX > 0) {
+                        if (dX > 0) { // Direita
                             int iconLeft = itemView.getLeft() + iconMargin;
-                            int iconRight = itemView.getLeft() + iconMargin + iconSize;
+                            int iconRight = itemView.getLeft() + iconMargin + icon.getIntrinsicWidth();
                             icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
                             background.setBounds(itemView.getLeft(), itemView.getTop(), itemView.getLeft() + ((int) dX), itemView.getBottom());
-                        } else if (dX < 0) {
+                        } else if (dX < 0) { // Esquerda
                             int iconRight = itemView.getRight() - iconMargin;
-                            int iconLeft = itemView.getRight() - iconMargin - iconSize;
+                            int iconLeft = itemView.getRight() - iconMargin - icon.getIntrinsicWidth();
                             icon.setBounds(iconLeft, iconTop, iconRight, iconBottom);
                             background.setBounds(itemView.getRight() + ((int) dX), itemView.getTop(), itemView.getRight(), itemView.getBottom());
                         } else {
@@ -224,38 +201,33 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         abrirDialogTarefa(tarefa);
     }
 
-    // Este método é chamado pelo swipe para a esquerda
     public void onDeleteClick(Usuario tarefa) {
         if (tarefa == null) return;
         new AlertDialog.Builder(this)
                 .setTitle("Excluir Tarefa")
-                .setMessage("Você tem certeza que deseja excluir \"" + tarefa.getNome() + "\"?")
-                .setPositiveButton("Sim, excluir", (dialog, which) -> {
-                    NotificationScheduler.cancelarNotificacao(this, tarefa);
+                .setMessage("Deseja excluir \"" + tarefa.getNome() + "\"?")
+                .setPositiveButton("Sim", (dialog, which) -> {
                     AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().deletar(tarefa));
-                    Toast.makeText(this, "Tarefa excluída", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Tarefa excluída.", Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton("Cancelar", (dialog, which) -> adapter.notifyItemChanged(listaTarefas.indexOf(tarefa)))
+                .setNegativeButton("Não", (dialog, which) -> adapter.notifyItemChanged(listaTarefas.indexOf(tarefa)))
                 .setOnCancelListener(dialog -> {
-                    if (listaTarefas.contains(tarefa)) {
+                    if(listaTarefas.contains(tarefa)) {
                         adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
                     }
                 })
                 .show();
     }
 
-    // Este método é chamado pelo swipe para a direita
     public void onStatusChange(Usuario tarefa, boolean isChecked) {
         String observacao = tarefa.getEmail() != null ? tarefa.getEmail() : "";
         String dataFinalizacao;
         if (isChecked) {
             observacao = "[OK] " + (observacao.startsWith("[OK] ") ? observacao.substring(5) : observacao);
             dataFinalizacao = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
-            NotificationScheduler.cancelarNotificacao(this, tarefa);
         } else {
             observacao = observacao.startsWith("[OK] ") ? observacao.substring(5) : observacao;
             dataFinalizacao = "";
-            NotificationScheduler.agendarNotificacao(this, tarefa);
         }
 
         tarefa.setEmail(observacao);
@@ -268,31 +240,16 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         String id = UUID.randomUUID().toString();
         long orderIndex = -System.currentTimeMillis();
         Usuario novaTarefa = new Usuario(id, titulo, observacao, data, "", orderIndex);
-        AppDatabase.databaseWriteExecutor.execute(() -> {
-            roomDatabase.tarefaDao().inserir(novaTarefa);
-            Usuario tarefaInserida = roomDatabase.tarefaDao().getTarefaPeloId(id);
-            if (tarefaInserida != null) {
-                runOnUiThread(() -> NotificationScheduler.agendarNotificacao(this, tarefaInserida));
-            }
-        });
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().inserir(novaTarefa));
         Toast.makeText(this, "Tarefa adicionada!", Toast.LENGTH_SHORT).show();
     }
 
-    // ✅ MÉTODO ATUALIZAR CORRIGIDO
     private void atualizarTarefa(Usuario tarefaOriginal, String novoTitulo, String novaObservacao, String novaData) {
-        // Define os novos valores no objeto original para manter os IDs
         tarefaOriginal.setNome(novoTitulo);
         tarefaOriginal.setEmail(novaObservacao);
         tarefaOriginal.setDataEntrega(novaData);
 
-        // Atualiza o objeto inteiro no banco de dados
-        AppDatabase.databaseWriteExecutor.execute(() -> {
-            roomDatabase.tarefaDao().atualizar(tarefaOriginal);
-            runOnUiThread(() -> {
-                NotificationScheduler.cancelarNotificacao(this, tarefaOriginal);
-                NotificationScheduler.agendarNotificacao(this, tarefaOriginal);
-            });
-        });
+        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().atualizar(tarefaOriginal));
         Toast.makeText(this, "Tarefa atualizada!", Toast.LENGTH_SHORT).show();
     }
 
@@ -328,7 +285,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             if (tarefa == null) {
                 adicionarTarefa(titulo, observacao, data);
             } else {
-                // ✅ CHAMADA CORRIGIDA: Passa o objeto original e os novos dados
                 boolean isChecked = tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK] ");
                 if (isChecked) observacao = "[OK] " + observacao;
                 atualizarTarefa(tarefa, titulo, observacao, data);
@@ -385,30 +341,5 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         });
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
         builder.show();
-    }
-
-    private void pedirPermissaoDeNotificacao() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
-            }
-        }
-    }
-
-    private void verificarPermissaoDeAlarmeExato() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
-                new AlertDialog.Builder(this)
-                        .setTitle("Permissão Necessária")
-                        .setMessage("Para que os lembretes funcionem, por favor, autorize o app a agendar alarmes.")
-                        .setPositiveButton("Abrir Configurações", (dialog, which) -> {
-                            Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
-                            startActivity(intent);
-                        })
-                        .setNegativeButton("Cancelar", null)
-                        .show();
-            }
-        }
     }
 }
