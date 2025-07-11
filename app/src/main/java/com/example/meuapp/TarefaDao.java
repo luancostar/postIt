@@ -12,12 +12,13 @@ import java.util.List;
 @Dao
 public interface TarefaDao {
 
-    // Retorna um LiveData, que a UI pode "observar"
-    @Query("SELECT * FROM tarefas ORDER BY orderIndex DESC")
+    @Query("SELECT * FROM tarefas ORDER BY orderIndex")
     LiveData<List<Usuario>> getTodasAsTarefas();
 
-    // OnConflictStrategy.REPLACE garante que se uma tarefa com o mesmo ID
-    // vier do Firebase, ela será atualizada em vez de criar uma duplicata.
+    // ✅ MÉTODO FALTANTE ADICIONADO AQUI
+    @Query("SELECT * FROM tarefas WHERE id = :id LIMIT 1")
+    Usuario getTarefaPeloId(String id);
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void inserir(Usuario tarefa);
 
@@ -26,8 +27,4 @@ public interface TarefaDao {
 
     @Delete
     void deletar(Usuario tarefa);
-
-    // Novo método para deletar pelo ID do Firebase
-    @Query("DELETE FROM tarefas WHERE id = :firebaseId")
-    void deletarPeloFirebaseId(String firebaseId);
 }

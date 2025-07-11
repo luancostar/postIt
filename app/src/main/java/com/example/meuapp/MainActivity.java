@@ -1,16 +1,23 @@
 package com.example.meuapp;
 
+import android.Manifest;
+import android.app.AlarmManager;
 import android.app.DatePickerDialog;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -40,17 +47,16 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnItemClickListener {
 
-    // --- Componentes da UI ---
+    public static final String TAG_DEBUG = "POSTIT_APP_DEBUG";
+
     private RecyclerView recyclerViewTarefas;
     private FloatingActionButton fabAdicionar;
     private TarefaAdapter adapter;
@@ -58,12 +64,20 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     private CircleImageView profileImage;
     private TextView profileName;
     private ImageButton btnEditName;
-
-    // --- Persistência ---
     private SharedPreferences sharedPreferences;
-    private ActivityResultLauncher<Intent> galleryLauncher;
-    private AppDatabase roomDatabase; // ✅ A ÚNICA FONTE DE DADOS DAS TAREFAS
+    private AppDatabase roomDatabase;
     private List<Usuario> listaTarefas;
+
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    Log.d(TAG_DEBUG, "Permissão de notificação CONCEDIDA.");
+                } else {
+                    Toast.makeText(this, "Permissão de notificação negada.", Toast.LENGTH_LONG).show();
+                }
+            });
+
+    private ActivityResultLauncher<Intent> galleryLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,9 +91,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             getSupportActionBar().setDisplayShowTitleEnabled(false);
         }
 
-        // --- INICIALIZAÇÃO APENAS DO ROOM ---
-        roomDatabase = AppDatabase.getDatabase(getApplicationContext());
-
+        // ORDEM DE INICIALIZAÇÃO CORRIGIDA
         textViewContadorAndamento = findViewById(R.id.textViewContadorAndamento);
         textViewContadorConcluidas = findViewById(R.id.textViewContadorConcluidas);
         recyclerViewTarefas = findViewById(R.id.recyclerViewTarefas);
@@ -87,17 +99,24 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         profileImage = findViewById(R.id.profile_image);
         profileName = findViewById(R.id.profile_name);
         btnEditName = findViewById(R.id.btn_edit_name);
-        sharedPreferences = getSharedPreferences("PerfilApp", Context.MODE_PRIVATE);
 
+        roomDatabase = AppDatabase.getDatabase(getApplicationContext());
+        sharedPreferences = getSharedPreferences("PerfilApp", Context.MODE_PRIVATE);
         listaTarefas = new ArrayList<>();
+
+        // CONFIGURA O ADAPTER E O RECYCLERVIEW
         adapter = new TarefaAdapter(this);
         recyclerViewTarefas.setLayoutManager(new LinearLayoutManager(this));
         recyclerViewTarefas.setAdapter(adapter);
 
+        // CHAMA OS OUTROS MÉTODOS DE CONFIGURAÇÃO
         carregarPerfil();
         observarBancoLocal();
         configurarSwipeActions();
+        pedirPermissaoDeNotificacao();
+        verificarPermissaoDeAlarmeExato();
 
+        // CONFIGURA OS LISTENERS DE CLIQUE
         fabAdicionar.setOnClickListener(v -> abrirDialogTarefa(null));
         btnEditName.setOnClickListener(v -> abrirDialogNome());
 
@@ -123,15 +142,8 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         });
     }
 
-    // ❌ O onStart() não faz mais nada, pois não há listener do Firebase
-    @Override
-    protected void onStart() {
-        super.onStart();
-    }
-
     private void observarBancoLocal() {
         roomDatabase.tarefaDao().getTodasAsTarefas().observe(this, tarefas -> {
-            // A lista da UI é sempre um reflexo do banco de dados local
             if (tarefas != null) {
                 this.listaTarefas = tarefas;
                 adapter.setTarefas(tarefas);
@@ -139,8 +151,6 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             }
         });
     }
-
-    // ❌ O método iniciarSincronizacaoFirebase() foi removido
 
     private void configurarSwipeActions() {
         new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
@@ -214,20 +224,18 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         abrirDialogTarefa(tarefa);
     }
 
+    // Este método é chamado pelo swipe para a esquerda
     public void onDeleteClick(Usuario tarefa) {
         if (tarefa == null) return;
         new AlertDialog.Builder(this)
                 .setTitle("Excluir Tarefa")
                 .setMessage("Você tem certeza que deseja excluir \"" + tarefa.getNome() + "\"?")
                 .setPositiveButton("Sim, excluir", (dialog, which) -> {
-                    // Ação de deletar agora só acontece no Room
+                    NotificationScheduler.cancelarNotificacao(this, tarefa);
                     AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().deletar(tarefa));
                     Toast.makeText(this, "Tarefa excluída", Toast.LENGTH_SHORT).show();
                 })
-                .setNegativeButton("Cancelar", (dialog, which) -> {
-                    // Notifica o adapter para o item redesenhar na posição original
-                    adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
-                })
+                .setNegativeButton("Cancelar", (dialog, which) -> adapter.notifyItemChanged(listaTarefas.indexOf(tarefa)))
                 .setOnCancelListener(dialog -> {
                     if (listaTarefas.contains(tarefa)) {
                         adapter.notifyItemChanged(listaTarefas.indexOf(tarefa));
@@ -236,43 +244,58 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
                 .show();
     }
 
+    // Este método é chamado pelo swipe para a direita
     public void onStatusChange(Usuario tarefa, boolean isChecked) {
         String observacao = tarefa.getEmail() != null ? tarefa.getEmail() : "";
         String dataFinalizacao;
         if (isChecked) {
             observacao = "[OK] " + (observacao.startsWith("[OK] ") ? observacao.substring(5) : observacao);
             dataFinalizacao = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
+            NotificationScheduler.cancelarNotificacao(this, tarefa);
         } else {
             observacao = observacao.startsWith("[OK] ") ? observacao.substring(5) : observacao;
             dataFinalizacao = "";
+            NotificationScheduler.agendarNotificacao(this, tarefa);
         }
 
         tarefa.setEmail(observacao);
         tarefa.setDataFinalizacao(dataFinalizacao);
 
-        // Atualiza a tarefa apenas no Room, em segundo plano
         AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().atualizar(tarefa));
     }
 
     private void adicionarTarefa(String titulo, String observacao, String data) {
-        // Gera um ID único localmente. O ID do Firebase não é mais necessário.
         String id = UUID.randomUUID().toString();
         long orderIndex = -System.currentTimeMillis();
         Usuario novaTarefa = new Usuario(id, titulo, observacao, data, "", orderIndex);
-
-        // Insere a tarefa apenas no Room, em segundo plano
-        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().inserir(novaTarefa));
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            roomDatabase.tarefaDao().inserir(novaTarefa);
+            Usuario tarefaInserida = roomDatabase.tarefaDao().getTarefaPeloId(id);
+            if (tarefaInserida != null) {
+                runOnUiThread(() -> NotificationScheduler.agendarNotificacao(this, tarefaInserida));
+            }
+        });
         Toast.makeText(this, "Tarefa adicionada!", Toast.LENGTH_SHORT).show();
     }
 
-    private void atualizarTarefa(String id, String titulo, String observacao, String data, String dataFinalizacao, long orderIndex) {
-        Usuario tarefaAtualizada = new Usuario(id, titulo, observacao, data, dataFinalizacao, orderIndex);
+    // ✅ MÉTODO ATUALIZAR CORRIGIDO
+    private void atualizarTarefa(Usuario tarefaOriginal, String novoTitulo, String novaObservacao, String novaData) {
+        // Define os novos valores no objeto original para manter os IDs
+        tarefaOriginal.setNome(novoTitulo);
+        tarefaOriginal.setEmail(novaObservacao);
+        tarefaOriginal.setDataEntrega(novaData);
 
-        // Atualiza a tarefa apenas no Room, em segundo plano
-        AppDatabase.databaseWriteExecutor.execute(() -> roomDatabase.tarefaDao().atualizar(tarefaAtualizada));
+        // Atualiza o objeto inteiro no banco de dados
+        AppDatabase.databaseWriteExecutor.execute(() -> {
+            roomDatabase.tarefaDao().atualizar(tarefaOriginal);
+            runOnUiThread(() -> {
+                NotificationScheduler.cancelarNotificacao(this, tarefaOriginal);
+                NotificationScheduler.agendarNotificacao(this, tarefaOriginal);
+            });
+        });
+        Toast.makeText(this, "Tarefa atualizada!", Toast.LENGTH_SHORT).show();
     }
 
-    // --- O resto dos seus métodos continua igual ---
     private void abrirDialogTarefa(final Usuario tarefa) {
         LayoutInflater inflater = getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.dialog_tarefa, null);
@@ -305,9 +328,10 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             if (tarefa == null) {
                 adicionarTarefa(titulo, observacao, data);
             } else {
+                // ✅ CHAMADA CORRIGIDA: Passa o objeto original e os novos dados
                 boolean isChecked = tarefa.getEmail() != null && tarefa.getEmail().startsWith("[OK] ");
                 if (isChecked) observacao = "[OK] " + observacao;
-                atualizarTarefa(tarefa.getId(), titulo, observacao, data, tarefa.getDataFinalizacao(), tarefa.getOrderIndex());
+                atualizarTarefa(tarefa, titulo, observacao, data);
             }
         });
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
@@ -337,12 +361,15 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
             profileImage.setImageURI(Uri.parse(uriFotoSalva));
         }
     }
+
     private void salvarNome(String nome) {
         sharedPreferences.edit().putString("USER_NAME", nome).apply();
     }
+
     private void salvarUriDaFoto(String uriString) {
         sharedPreferences.edit().putString("USER_PHOTO_URI", uriString).apply();
     }
+
     private void abrirDialogNome() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Digite seu nome");
@@ -358,5 +385,30 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         });
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
         builder.show();
+    }
+
+    private void pedirPermissaoDeNotificacao() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+    }
+
+    private void verificarPermissaoDeAlarmeExato() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if (alarmManager != null && !alarmManager.canScheduleExactAlarms()) {
+                new AlertDialog.Builder(this)
+                        .setTitle("Permissão Necessária")
+                        .setMessage("Para que os lembretes funcionem, por favor, autorize o app a agendar alarmes.")
+                        .setPositiveButton("Abrir Configurações", (dialog, which) -> {
+                            Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM);
+                            startActivity(intent);
+                        })
+                        .setNegativeButton("Cancelar", null)
+                        .show();
+            }
+        }
     }
 }
