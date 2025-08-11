@@ -47,6 +47,7 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.github.bumptech.glide:glide:4.16.0")
     ksp("com.github.bumptech.glide:ksp:4.16.0")
+    implementation("com.github.chrisbanes:PhotoView:2.3.0")
 
     // Room com versão explícita
     implementation("androidx.room:room-runtime:2.6.1")

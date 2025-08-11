@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
     private FloatingActionButton fabAdicionar;
     private TarefaAdapter adapter;
     private TextView textViewContadorAndamento, textViewContadorConcluidas, textViewContadorAtrasadas;
+    private TextView textViewFiltroAtivo;
     private CircleImageView profileImage;
     private TextView profileName;
     private ImageButton btnEditName;
@@ -88,6 +89,7 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         textViewContadorAndamento = findViewById(R.id.textViewContadorAndamento);
         textViewContadorConcluidas = findViewById(R.id.textViewContadorConcluidas);
         textViewContadorAtrasadas = findViewById(R.id.textViewContadorAtrasadas);
+        textViewFiltroAtivo = findViewById(R.id.textViewFiltroAtivo);
         recyclerViewTarefas = findViewById(R.id.recyclerViewTarefas);
         fabAdicionar = findViewById(R.id.fabAdicionar);
         profileImage = findViewById(R.id.profile_image);
@@ -243,10 +245,30 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
 
     @Override
     public void onAnexoClick(String uri) {
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(Uri.parse(uri), "image/*");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        startActivity(intent);
+        // Encontrar a tarefa que contém este anexo
+        Usuario tarefaComAnexo = null;
+        int posicaoAnexo = 0;
+        
+        for (Usuario tarefa : listaTarefas) {
+            if (tarefa.getAnexos() != null) {
+                for (int i = 0; i < tarefa.getAnexos().size(); i++) {
+                    if (tarefa.getAnexos().get(i).equals(uri)) {
+                        tarefaComAnexo = tarefa;
+                        posicaoAnexo = i;
+                        break;
+                    }
+                }
+                if (tarefaComAnexo != null) break;
+            }
+        }
+        
+        if (tarefaComAnexo != null && tarefaComAnexo.getAnexos() != null) {
+            // Abrir galeria de imagens personalizada
+            Intent intent = new Intent(this, ImageGalleryActivity.class);
+            intent.putStringArrayListExtra("image_uris", new ArrayList<>(tarefaComAnexo.getAnexos()));
+            intent.putExtra("current_position", posicaoAnexo);
+            startActivity(intent);
+        }
     }
 
     // --- MÉTODOS DE AÇÃO ---
@@ -551,6 +573,21 @@ public class MainActivity extends AppCompatActivity implements TarefaAdapter.OnI
         btnPrioridadeBaixa.setSelected(filtroAtual.equals("BAIXA"));
         btnPrioridadeMedia.setSelected(filtroAtual.equals("MEDIA"));
         btnPrioridadeAlta.setSelected(filtroAtual.equals("ALTA"));
+        
+        // Atualizar indicador de filtro ativo
+        String textoFiltro;
+        switch (filtroAtual) {
+            case "BAIXA":
+                textoFiltro = "Tarefas - Prioridade Baixa";
+                break;
+            case "ALTA":
+                textoFiltro = "Tarefas - Prioridade Alta";
+                break;
+            default:
+                textoFiltro = "Tarefas - Prioridade Média";
+                break;
+        }
+        textViewFiltroAtivo.setText(textoFiltro);
     }
 
     private void filtrarTarefasPorPrioridade() {
