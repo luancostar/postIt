@@ -33,6 +33,11 @@
             android:name=".MainActivity"
             android:exported="false" />
         
+        <activity
+            android:name=".ImageGalleryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+        
         <receiver
             android:name=".NotificationReceiver"
             android:enabled="true"
