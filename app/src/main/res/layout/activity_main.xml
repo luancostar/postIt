@@ -13,11 +13,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/colorPrimary"
-        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        app:elevation="0dp">
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize">
+            android:layout_height="?attr/actionBarSize"
+            app:layout_scrollFlags="">
             <ImageView
                 android:layout_width="wrap_content"
                 android:layout_height="80dp"
@@ -28,18 +30,23 @@
         </androidx.appcompat.widget.Toolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <androidx.core.widget.NestedScrollView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <LinearLayout
+        <!-- Seção fixa com perfil e resumo -->
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:orientation="vertical"
-            android:paddingBottom="80dp">
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:clipToPadding="false"
+                android:orientation="vertical">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
@@ -142,29 +149,157 @@
                                 android:text="Concluídas"/>
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="140dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="4dp"
+                        app:cardBackgroundColor="#FECACA"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp">
+                        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp">
+                            <TextView
+                                android:id="@+id/textViewContadorAtrasadas"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textSize="24sp"
+                                android:textStyle="bold"/>
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Atrasadas"/>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Tarefas Recentes"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"/>
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerViewTarefas"
+        <!-- Seção fixa dos botões de prioridade -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tarefas Recentes"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Barra de filtros de prioridade -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false"
-                tools:itemCount="3"
-                tools:listitem="@layout/item_tarefa" />
+                android:orientation="horizontal"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/priority_filter_background"
+                android:padding="4dp">
 
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="2dp">
+                    <Button
+                        android:id="@+id/btnPrioridadeBaixa"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Baixa"
+                        android:textSize="12sp"
+                        android:textColor="@color/priority_text_color"
+                        android:background="@drawable/priority_button_selector"
+                        style="@style/Widget.Material3.Button.TextButton" />
+                    <TextView
+                        android:id="@+id/badgeBaixa"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/notification_badge"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@android:color/white"
+                        android:textSize="10sp"
+                        android:visibility="gone" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="2dp">
+                    <Button
+                        android:id="@+id/btnPrioridadeMedia"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Média"
+                        android:textSize="12sp"
+                        android:textColor="@color/priority_text_color"
+                        android:background="@drawable/priority_button_selector"
+                        style="@style/Widget.Material3.Button.TextButton" />
+                    <TextView
+                        android:id="@+id/badgeMedia"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/notification_badge"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@android:color/white"
+                        android:textSize="10sp"
+                        android:visibility="gone" />
+                </FrameLayout>
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="2dp">
+                    <Button
+                        android:id="@+id/btnPrioridadeAlta"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:text="Alta"
+                        android:textSize="12sp"
+                        android:textColor="@color/priority_text_color"
+                        android:background="@drawable/priority_button_selector"
+                        style="@style/Widget.Material3.Button.TextButton" />
+                    <TextView
+                        android:id="@+id/badgeAlta"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/notification_badge"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="@android:color/white"
+                        android:textSize="10sp"
+                        android:visibility="gone" />
+                </FrameLayout>
+
+            </LinearLayout>
+
+        <!-- RecyclerView com rolagem própria -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerViewTarefas"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="16dp"
+            android:clipToPadding="false"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="120dp"
+            tools:itemCount="3"
+            tools:listitem="@layout/item_tarefa" />
+
+    </LinearLayout>
 
     <ImageView
         android:id="@+id/delete_zone"
@@ -184,7 +319,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="80dp"
         app:srcCompat="@drawable/ic_add"
         android:contentDescription="Adicionar Tarefa"/>
 

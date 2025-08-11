@@ -1,5 +1,5 @@
 [versions]
-agp = "8.2.2"
+agp = "8.8.0"
 kotlin = "1.9.22"
 ksp = "1.9.22-1.0.17"
 googleServices = "4.4.2"
@@ -10,6 +10,10 @@ appcompat = "1.6.1"
 material = "1.10.0"
 activity = "1.8.0"
 constraintlayout = "2.1.4"
+firebaseCrashlyticsBuildtools = "3.0.4"
+firebaseCrashlytics = "2.9.9"
+supportAnnotations = "28.0.0"
+roomCommonJvm = "2.7.2" # ✅ Adicione esta linha
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -19,6 +23,9 @@ appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "a
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
+support-annotations = { group = "com.android.support", name = "support-annotations", version.ref = "supportAnnotations" }
+room-common-jvm = { group = "androidx.room", name = "room-common-jvm", version.ref = "roomCommonJvm" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

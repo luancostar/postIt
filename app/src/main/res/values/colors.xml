@@ -4,5 +4,9 @@
     <color name="white">#FFFFFFFF</color>
     <color name="md_theme_primary">#4A55A2</color>
     <color name="due_today_border_color">#FF9800</color>
+    <color name="priority_text_color">#374151</color>
+    <color name="colorPrimary">#4A55A2</color>
+    <color name="overdue_border_color">#D32F2F</color>
+    <color name="overdue_background_color">#FFEBEE</color>
 
 </resources>
