@@ -1,8 +1,7 @@
 plugins {
-    alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.google.gms.google.services) apply false // Padronizado
-    alias(libs.plugins.google.ksp) apply false                   // Padronizado
-
-    // ✅ LINHA FALTANTE ADICIONADA AQUI
-    alias(libs.plugins.jetbrains.kotlin.android) apply false
+    id("com.android.application") version "8.8.0" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+    id("com.google.gms.google-services") version "4.4.2" apply false
+    id("com.google.devtools.ksp") version "1.9.22-1.0.17" apply false
+    id("com.google.firebase.crashlytics") version "2.9.9" apply false
 }

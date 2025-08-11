@@ -42,4 +42,47 @@
             android:clickable="true"/>
     </com.google.android.material.textfield.TextInputLayout>
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="Prioridade"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/priority_text_color" />
+
+    <RadioGroup
+        android:id="@+id/radioGroupPrioridade"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/radioBaixa"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Baixa"
+            android:textSize="14sp" />
+
+        <RadioButton
+            android:id="@+id/radioMedia"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Média"
+            android:textSize="14sp"
+            android:checked="true" />
+
+        <RadioButton
+            android:id="@+id/radioAlta"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Alta"
+            android:textSize="14sp" />
+
+    </RadioGroup>
+
 </LinearLayout>

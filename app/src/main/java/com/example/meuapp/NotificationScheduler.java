@@ -4,6 +4,9 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 import java.text.ParseException;
@@ -42,9 +45,24 @@ public class NotificationScheduler {
 
             if (calendar.getTimeInMillis() > System.currentTimeMillis()) {
                 if (alarmManager != null) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
-                    Log.d(TAG_ALARME, "SUCESSO! Alarme agendado para a tarefa '" + tarefa.getNome() + "' em " + calendar.getTime().toString());
-                    Toast.makeText(context, "Lembrete agendado!", Toast.LENGTH_SHORT).show();
+                    // Verificar se pode agendar alarmes exatos
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        if (alarmManager.canScheduleExactAlarms()) {
+                            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                        } else {
+                            // Fallback para alarme inexato se não tiver permissão
+                            alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                        }
+                    } else {
+                        // Para versões anteriores ao Android 12
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), pendingIntent);
+                    }
+                     Log.d(TAG_ALARME, "SUCESSO! Alarme agendado para a tarefa '" + tarefa.getNome() + "' em " + calendar.getTime().toString());
+                     
+                     // Executar Toast na thread principal
+                     new Handler(Looper.getMainLooper()).post(() -> {
+                         Toast.makeText(context, "Lembrete agendado!", Toast.LENGTH_SHORT).show();
+                     });
                 }
             } else {
                 Log.w(TAG_ALARME, "FALHA AO AGENDAR: O horário " + calendar.getTime().toString() + " já passou.");
